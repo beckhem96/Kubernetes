@@ -33,7 +33,7 @@ pipeline {
     }
     post {
         always {
-            echo "Pipeline finished. good 포트추가해서 다시"
+            echo "Pipeline finished. good 포트추가해서 다시, docker pipeline 설치해서 다시"
         }
     }
 }
