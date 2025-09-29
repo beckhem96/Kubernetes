@@ -26,7 +26,7 @@ pipeline {
 
                     echo "Running new container..."
                     // 빌드된 이미지를 사용하여 새 컨테이너를 실행
-                    customImage.run("-d --name myapp -p 8081:8081")
+                    customImage.run("-d --name myapp -p 8081:8080")
                 }
             }
         }
