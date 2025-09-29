@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  elasticsearch:
+    image: elasticsearch:8.15.0
+    ports:
+      - "9200:9200"
+    environment:
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false"
+
+  kibana:
+    image: kibana:8.15.0
+    ports:
+      - "5601:5601"
+    depends_on: [elasticsearch]
+
+  myapp:
+    build: . # 현재 디렉토리의 Dockerfile을 사용하여 이미지 빌드
+    ports:
+      - "8081:8080"
+    depends_on: [kafka, elasticsearch]
+    environment:
+      # Spring Boot 애플리케이션이 Kafka와 통신할 주소
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
