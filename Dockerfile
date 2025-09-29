@@ -29,7 +29,7 @@ WORKDIR /app
 COPY --from=build /workspace/app/build/libs/*.jar app.jar
 
 # 8080 포트 개방
-EXPOSE 8080
+EXPOSE 8081
 
 # 컨테이너 시작 시 애플리케이션 실행
 ENTRYPOINT ["java","-jar","app.jar"]
