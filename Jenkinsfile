@@ -9,18 +9,31 @@ pipeline {
                 echo 'Preparation stage (Code is already checked out)'
             }
         }
-        stage('Test') {
+        stage('Build and Run Docker Container') {
             steps {
-                // 예: sh './gradlew test'
-                echo 'Test stage'
+                echo "Building Docker image..."
+                // Dockerfile이 있는 프로젝트 폴더로 이동할 필요 없이,
+                // Jenkins가 git clone한 경로에서 바로 빌드
+                // docker.build()는 현재 작업 공간의 Dockerfile을 사용
+                script {
+                    def customImage = docker.build("myapp:latest")
+
+                    echo "Stopping and removing old container..."
+                    // sh 스텝을 사용하여 docker 명령을 로컬 셸에서 직접 실행
+                    // || true : 컨테이너가 없어서 실패해도 파이프라인이 멈추지 않음
+                    sh "docker stop myapp || true"
+                    sh "docker rm myapp || true"
+
+                    echo "Running new container..."
+                    // 빌드된 이미지를 사용하여 새 컨테이너를 실행
+                    customImage.run("-d --name myapp -p 8081:8081")
+                }
             }
         }
-        stage('Build') {
-            steps {
-                // 예: sh './gradlew build'
-                echo 'Build stage'
-            }
+    }
+    post {
+        always {
+            echo "Pipeline finished."
         }
-        // ... 이하 Docker 빌드 등 다른 단계들
     }
 }
