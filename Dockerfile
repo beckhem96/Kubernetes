@@ -1,7 +1,7 @@
 # =======================================================
-# STAGE 1: Gradle을 사용하여 애플리케이션을 빌드하는 단계
+# STAGE 1: 전체 JDK가 포함된 이미지로 애플리케이션 빌드
 # =======================================================
-FROM openjdk:17-jdk-slim AS build
+FROM eclipse-temurin:17-jdk-jammy AS build
 
 WORKDIR /workspace/app
 
@@ -14,14 +14,14 @@ COPY settings.gradle .
 # 소스 코드 복사
 COPY src src
 
-# 프로젝트 빌드 실행 (이 단계에서 .jar 파일이 생성됨)
+# 프로젝트 빌드 실행
 RUN ./gradlew build --no-daemon
 
 
 # =======================================================
-# STAGE 2: 빌드된 결과물로 최종 실행 이미지를 만드는 단계
+# STAGE 2: 더 가벼운 JRE만 포함된 이미지로 최종 실행 환경 구성
 # =======================================================
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ WORKDIR /app
 COPY --from=build /workspace/app/build/libs/*.jar app.jar
 
 # 8080 포트 개방
-EXPOSE 8081
+EXPOSE 8080
 
 # 컨테이너 시작 시 애플리케이션 실행
 ENTRYPOINT ["java","-jar","app.jar"]
