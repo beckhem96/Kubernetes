@@ -14,6 +14,9 @@ pipeline {
             steps {
                 echo "Building and deploying the entire stack with Docker Compose..."
                 // 이전 Docker Compose 스택을 깔끔하게 정리하고 중지합니다. (권장)
+                echo "--- Checking files in current workspace ---"
+                sh 'ls -la'
+                echo "-------------------------------------------"
                 sh 'docker compose down'
 
                 // docker-compose.yml을 사용하여 전체 스택을 실행합니다.
