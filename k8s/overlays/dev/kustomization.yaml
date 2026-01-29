@@ -1,0 +1,49 @@
+# =============================================================================
+# Kustomize Dev Overlay
+# =============================================================================
+# 목적: 개발 환경 전용 설정 오버라이드
+#
+# 개발 환경 특징:
+# - 리소스 제한 완화 (빠른 시작, 낮은 비용)
+# - 디버그 로깅 활성화
+# - 로컬 이미지 사용 (imagePullPolicy: Never)
+#
+# 사용법:
+#   kubectl apply -k k8s/overlays/dev
+#   또는
+#   ./deploy.sh dev apply
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 모든 리소스의 네임스페이스를 myapp-dev로 변경
+# base의 myapp 네임스페이스도 myapp-dev로 변환됨
+namespace: myapp-dev
+
+# 리소스 이름에 'dev-' 접두사 추가
+# 예: myapp → dev-myapp, redis → dev-redis
+namePrefix: dev-
+
+# 모든 리소스에 environment 레이블 추가
+# kubectl get all -l environment=development 로 필터링 가능
+labels:
+  - pairs:
+      environment: development
+
+# 포함할 리소스
+resources:
+  - ../../base           # base 리소스 상속
+  - ingress.yaml         # 개발 환경용 Ingress
+
+# 환경별 설정 오버라이드
+patches:
+  # Deployment 설정 변경 (이미지 정책, 프로파일)
+  - path: patches/deployment-patch.yaml
+  # ConfigMap 값 변경 (로그 레벨, 프로파일)
+  - path: patches/configmap-patch.yaml
+  # 리소스 제한 축소 (개발 환경은 낮은 리소스로 운영)
+  - path: patches/resource-patch.yaml
+  # Kafka 서비스 이름 패치 (namePrefix 반영)
+  - path: patches/kafka-patch.yaml
+  # Kibana Elasticsearch 연결 주소 패치 (namePrefix 반영)
+  - path: patches/kibana-patch.yaml

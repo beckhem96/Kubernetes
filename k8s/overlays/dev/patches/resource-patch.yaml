@@ -1,0 +1,71 @@
+# =============================================================================
+# Resource Patch - Dev Environment
+# =============================================================================
+# 목적: 개발 환경에서 리소스 사용량 축소
+#
+# 개발 환경 리소스 정책:
+# - 빠른 시작과 낮은 비용을 위해 최소 리소스 할당
+# - 로컬 클러스터(minikube, kind)의 제한된 리소스 고려
+# - 운영 환경 대비 약 50% 수준으로 축소
+#
+# 참고: limits는 requests보다 높게 설정하여 버스트 허용
+# =============================================================================
+
+# ----- Application -----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      containers:
+        - name: myapp
+          resources:
+            requests:
+              memory: "128Mi"    # 기본 256Mi → 128Mi
+              cpu: "100m"        # 기본 250m → 100m
+            limits:
+              memory: "256Mi"    # 기본 512Mi → 256Mi
+              cpu: "250m"        # 기본 500m → 250m
+---
+# ----- Elasticsearch -----
+# JVM 기반이므로 힙 메모리 설정도 함께 축소
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  template:
+    spec:
+      containers:
+        - name: elasticsearch
+          resources:
+            requests:
+              memory: "512Mi"    # 기본 1Gi → 512Mi
+              cpu: "250m"        # 기본 500m → 250m
+            limits:
+              memory: "1Gi"      # 기본 2Gi → 1Gi
+              cpu: "500m"        # 기본 1000m → 500m
+          env:
+            # 힙 메모리도 리소스에 맞게 축소
+            - name: ES_JAVA_OPTS
+              value: "-Xms256m -Xmx256m"    # 기본 512m → 256m
+---
+# ----- Kafka -----
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  template:
+    spec:
+      containers:
+        - name: kafka
+          resources:
+            requests:
+              memory: "256Mi"    # 기본 512Mi → 256Mi
+              cpu: "100m"        # 기본 250m → 100m
+            limits:
+              memory: "512Mi"    # 기본 1Gi → 512Mi
+              cpu: "500m"        # 기본 1000m → 500m

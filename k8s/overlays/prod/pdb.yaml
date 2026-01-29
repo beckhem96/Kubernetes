@@ -1,0 +1,52 @@
+# =============================================================================
+# Pod Disruption Budgets (PDB)
+# =============================================================================
+# 목적: 노드 유지보수/업그레이드 시 서비스 가용성 보장
+#
+# PDB 동작 원리:
+# - kubectl drain 또는 클러스터 오토스케일러가 Pod 제거 시
+# - minAvailable 이상의 Pod가 항상 실행 중이도록 보장
+# - 조건을 만족하지 않으면 Pod 제거 차단
+#
+# 설정 가이드:
+# - minAvailable: 최소 유지 Pod 수 (절대값 또는 %)
+# - maxUnavailable: 최대 중단 가능 Pod 수
+# - replicas=3, minAvailable=2 → 한 번에 1개만 중단 가능
+# =============================================================================
+
+# ----- Application PDB -----
+# 3개 중 최소 2개 유지 → 롤링 업데이트 중에도 서비스 지속
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: myapp-pdb
+spec:
+  minAvailable: 2          # 최소 2개 Pod 항상 실행
+  selector:
+    matchLabels:
+      app: myapp
+      component: backend
+---
+# ----- Kafka PDB -----
+# 브로커 1개 이상 유지 → 메시지 처리 지속
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kafka
+---
+# ----- Elasticsearch PDB -----
+# 노드 1개 이상 유지 → 로그 조회/저장 지속
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: elasticsearch

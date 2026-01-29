@@ -1,0 +1,42 @@
+# =============================================================================
+# Application ConfigMap
+# =============================================================================
+# 목적: 애플리케이션 환경 설정을 외부화하여 컨테이너 이미지 재빌드 없이 설정 변경
+#
+# ConfigMap vs Secret:
+# - ConfigMap: 민감하지 않은 설정 (포트, URL, 로그 레벨 등)
+# - Secret: 민감한 정보 (비밀번호, API 키, 인증서 등)
+#
+# 각 환경(dev/prod)에서 patches를 통해 값을 오버라이드
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+  labels:
+    app: myapp
+data:
+  # ----- Spring Boot 기본 설정 -----
+  SPRING_APPLICATION_NAME: "myapp"
+
+  # 활성 프로파일 (dev/prod에서 오버라이드)
+  SPRING_PROFILES_ACTIVE: "default"
+
+  # ----- Kafka 연결 설정 -----
+  # 클러스터 내부 DNS: <service-name>.<namespace>.svc.cluster.local
+  # 같은 네임스페이스면 <service-name>만으로 접근 가능
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+
+  # ----- Elasticsearch 연결 설정 -----
+  SPRING_ELASTICSEARCH_URIS: "http://elasticsearch:9200"
+
+  # ----- Redis 연결 설정 -----
+  SPRING_DATA_REDIS_HOST: "redis"
+  SPRING_DATA_REDIS_PORT: "6379"
+
+  # ----- 서버 설정 -----
+  SERVER_PORT: "8080"
+
+  # ----- 로깅 설정 -----
+  # 기본은 INFO, 개발 환경에서는 DEBUG로 오버라이드
+  LOGGING_LEVEL_ROOT: "INFO"

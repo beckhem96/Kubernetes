@@ -1,0 +1,52 @@
+# =============================================================================
+# Dev Environment Ingress
+# =============================================================================
+# 목적: 개발 환경에서 외부 HTTP 접근을 위한 라우팅 설정
+#
+# Ingress Controller 필요:
+#   minikube: minikube addons enable ingress
+#   Kind: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+#
+# 로컬 테스트를 위한 hosts 파일 설정 (/etc/hosts):
+#   127.0.0.1 dev.myapp.local
+#   127.0.0.1 dev.kibana.local
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp-ingress
+  labels:
+    app: myapp
+  annotations:
+    # Nginx Ingress Controller 전용 설정
+    # URL 경로를 백엔드 서비스의 루트로 재작성
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  # 사용할 Ingress Controller 클래스
+  ingressClassName: nginx
+
+  rules:
+    # ----- 애플리케이션 라우팅 -----
+    - host: dev.myapp.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                # namePrefix가 적용된 서비스 이름
+                name: dev-myapp-service
+                port:
+                  number: 80
+
+    # ----- Kibana 대시보드 라우팅 -----
+    - host: dev.kibana.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dev-kibana
+                port:
+                  number: 5601

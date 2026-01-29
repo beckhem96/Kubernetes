@@ -1,0 +1,74 @@
+# =============================================================================
+# Prod Environment Ingress
+# =============================================================================
+# 목적: 운영 환경 HTTPS 접근을 위한 라우팅 설정
+#
+# 운영 환경 특징:
+# - TLS/HTTPS 적용 (인증서 필수)
+# - 요청 제한 및 타임아웃 설정
+# - 대용량 파일 업로드 지원
+#
+# TLS 인증서 Secret 생성:
+#   kubectl create secret tls myapp-tls-secret \
+#     --cert=path/to/tls.crt \
+#     --key=path/to/tls.key \
+#     -n myapp-prod
+#
+# 또는 cert-manager 사용:
+#   annotations:
+#     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp-ingress
+  labels:
+    app: myapp
+  annotations:
+    # URL 경로 재작성
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+    # HTTP → HTTPS 리다이렉트 강제
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+    # 요청 본문 최대 크기 (파일 업로드 등)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+    # 백엔드 응답 대기 시간 (초)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  ingressClassName: nginx
+
+  # ----- TLS 설정 -----
+  tls:
+    - hosts:
+        - myapp.example.com
+        - kibana.example.com
+      # TLS 인증서가 저장된 Secret 이름
+      secretName: myapp-tls-secret
+
+  rules:
+    # ----- 애플리케이션 라우팅 -----
+    - host: myapp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-myapp-service
+                port:
+                  number: 80
+
+    # ----- Kibana 대시보드 라우팅 -----
+    # 보안 주의: 운영 환경에서는 인증 추가 권장
+    - host: kibana.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-kibana
+                port:
+                  number: 5601

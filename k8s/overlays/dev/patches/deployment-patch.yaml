@@ -1,0 +1,72 @@
+# =============================================================================
+# Deployment Patch - Dev Environment
+# =============================================================================
+# 목적: 개발 환경에 맞게 Deployment 설정 오버라이드
+#
+# 변경 사항:
+# - replicas: 1 (단일 인스턴스로 충분)
+# - imagePullPolicy: Never (로컬 빌드 이미지 사용)
+# - SPRING_PROFILES_ACTIVE: dev (Spring 개발 프로파일)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  # 개발 환경에서는 단일 인스턴스로 운영
+  # HPA가 있지만 minReplicas=1이므로 영향 없음
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: myapp
+          # Never: 로컬에 있는 이미지만 사용 (pull 시도 안함)
+          # 로컬에서 docker build 후 바로 테스트할 때 유용
+          # minikube: eval $(minikube docker-env) 후 빌드 필요
+          imagePullPolicy: Never
+
+          # ConfigMap과 별도로 환경변수 직접 주입
+          # ConfigMap보다 우선순위가 높음
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "dev"
+
+          # ----- 개발 환경 리소스 (낮은 사양으로 시작 느림) -----
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+          # ----- Startup Probe -----
+          # 앱 시작 완료까지 liveness/readiness 체크 보류
+          # 최대 300초(5분) 대기 (failureThreshold * periodSeconds)
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
+
+          # ----- Liveness Probe (오버라이드) -----
+          # startupProbe 성공 후에만 동작
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ----- Readiness Probe (오버라이드) -----
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3

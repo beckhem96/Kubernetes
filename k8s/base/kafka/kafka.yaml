@@ -1,0 +1,141 @@
+# =============================================================================
+# Kafka StatefulSet & Services
+# =============================================================================
+# 목적: 분산 이벤트 스트리밍 플랫폼 (메시지 브로커)
+#
+# Kafka 사용 사례:
+# - 이벤트 소싱: 도메인 이벤트 저장 및 재생
+# - 로그 수집: 애플리케이션 로그를 Logstash/ELK로 전달
+# - 마이크로서비스 통신: 비동기 메시지 기반 통신
+# - 스트림 처리: 실시간 데이터 파이프라인
+#
+# StatefulSet 사용 이유:
+# - 브로커 ID가 Pod 이름에 매핑됨 (kafka-0, kafka-1, ...)
+# - 재시작 시에도 동일한 스토리지 연결
+# =============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+    component: kafka
+spec:
+  serviceName: kafka-headless
+  replicas: 1               # 프로덕션에서는 최소 3 권장 (고가용성)
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+        component: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.5.3
+          ports:
+            - containerPort: 9092
+              name: kafka           # 외부(클라이언트) 연결
+            - containerPort: 9093
+              name: kafka-internal  # 브로커 간 통신
+
+          env:
+            # 브로커 고유 식별자 (클러스터 확장 시 변경 필요)
+            - name: KAFKA_BROKER_ID
+              value: "1"
+
+            # Zookeeper 연결 주소
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: "zookeeper:2181"
+
+            # ----- 리스너 설정 -----
+            # 바인딩할 네트워크 주소와 포트
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9093"
+
+            # 클라이언트에게 광고할 주소 (실제 접속 주소)
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka:9092,INTERNAL://kafka:9093"
+
+            # 리스너별 보안 프로토콜 매핑
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT"
+
+            # 브로커 간 통신에 사용할 리스너
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "INTERNAL"
+
+            # ----- 토픽 설정 -----
+            # 오프셋 토픽 복제 계수 (브로커 수 이하로 설정)
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+
+            # 토픽 자동 생성 허용
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "true"
+
+            # 메시지 보관 기간 (168시간 = 7일)
+            - name: KAFKA_LOG_RETENTION_HOURS
+              value: "168"
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /var/lib/kafka/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: kafka-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi          # 로그 보관을 위한 충분한 공간
+---
+# =============================================================================
+# Kafka Service (ClusterIP)
+# =============================================================================
+# 목적: 애플리케이션에서 kafka:9092로 접근
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+spec:
+  ports:
+    - port: 9092
+      name: kafka
+  selector:
+    app: kafka
+---
+# =============================================================================
+# Kafka Headless Service
+# =============================================================================
+# 목적: 브로커 간 통신 및 개별 브로커 DNS 제공
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  labels:
+    app: kafka
+spec:
+  ports:
+    - port: 9092
+      name: kafka
+    - port: 9093
+      name: kafka-internal
+  clusterIP: None
+  selector:
+    app: kafka

@@ -1,0 +1,30 @@
+# =============================================================================
+# ConfigMap Patch - Prod Environment
+# =============================================================================
+# 목적: 운영 환경에 맞게 애플리케이션 설정 오버라이드
+#
+# 변경 사항:
+# - SPRING_PROFILES_ACTIVE: prod
+# - LOGGING_LEVEL_ROOT: WARN (필수 경고만 출력)
+# - LOGGING_LEVEL_COM_EXAMPLE: INFO (앱 로그는 INFO 유지)
+#
+# 운영 환경 로깅 가이드:
+# - 과도한 로깅은 성능 저하 및 스토리지 비용 증가
+# - 중요 이벤트만 로깅하고 상세 로그는 필요시 동적 변경
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+data:
+  # Spring 운영 프로파일 활성화
+  # application-prod.yaml 설정이 로드됨
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  # 루트 로거: WARN 이상만 출력
+  # ERROR, WARN만 기록하여 로그 볼륨 감소
+  LOGGING_LEVEL_ROOT: "WARN"
+
+  # 애플리케이션 로거: INFO 유지
+  # 비즈니스 로직 추적을 위해 INFO 레벨 유지
+  LOGGING_LEVEL_COM_EXAMPLE: "INFO"

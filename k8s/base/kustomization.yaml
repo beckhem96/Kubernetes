@@ -1,0 +1,53 @@
+# =============================================================================
+# Kustomize Base 설정
+# =============================================================================
+# 목적: 모든 환경(dev, prod)에서 공통으로 사용되는 기본 리소스 정의
+#
+# Kustomize 구조:
+# - base/: 공통 리소스 정의 (이 파일)
+# - overlays/dev/: 개발 환경 커스터마이징
+# - overlays/prod/: 운영 환경 커스터마이징
+#
+# 사용법:
+#   kubectl apply -k k8s/overlays/dev   # 개발 환경 배포
+#   kubectl apply -k k8s/overlays/prod  # 운영 환경 배포
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 모든 리소스에 적용될 기본 네임스페이스
+# overlay에서 myapp-dev, myapp-prod로 오버라이드됨
+namespace: myapp
+
+# 모든 리소스에 공통으로 추가될 레이블
+# 리소스 필터링 및 관리에 활용: kubectl get all -l project=myapp
+labels:
+  - pairs:
+      project: myapp
+
+# 포함할 리소스 목록
+resources:
+  # 네임스페이스 (가장 먼저 생성되어야 함)
+  - namespace.yaml
+
+  # ===== Application =====
+  # Spring Boot 애플리케이션 관련 리소스
+  - app/deployment.yaml    # 앱 배포 설정
+  - app/service.yaml       # 내부 서비스 노출
+  - app/configmap.yaml     # 환경 설정
+  - app/hpa.yaml           # 오토스케일링
+
+  # ===== Kafka =====
+  # 이벤트 스트리밍 플랫폼
+  - kafka/zookeeper.yaml   # Kafka 코디네이터
+  - kafka/kafka.yaml       # 메시지 브로커
+
+  # ===== ELK Stack =====
+  # 로그 수집 및 분석 플랫폼
+  - elk/elasticsearch.yaml # 로그 저장/검색
+  - elk/logstash.yaml      # 로그 수집/변환
+  - elk/kibana.yaml        # 로그 시각화
+
+  # ===== Redis =====
+  # 캐시 및 세션 저장소
+  - redis/redis.yaml

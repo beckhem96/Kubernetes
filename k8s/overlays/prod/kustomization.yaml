@@ -1,0 +1,50 @@
+# =============================================================================
+# Kustomize Prod Overlay
+# =============================================================================
+# 목적: 운영 환경 전용 설정 오버라이드
+#
+# 운영 환경 특징:
+# - 고가용성 (다중 레플리카, PDB)
+# - 보안 강화 (TLS, 제한된 로깅)
+# - 충분한 리소스 할당
+# - Pod Anti-Affinity (노드 분산 배치)
+#
+# 사용법:
+#   kubectl apply -k k8s/overlays/prod
+#   또는
+#   ./deploy.sh prod apply
+#
+# 주의사항:
+# - TLS 인증서 Secret 사전 생성 필요 (myapp-tls-secret)
+# - 충분한 클러스터 리소스 확보 필요
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 모든 리소스의 네임스페이스를 myapp-prod로 변경
+namespace: myapp-prod
+
+# 리소스 이름에 'prod-' 접두사 추가
+namePrefix: prod-
+
+# 운영 환경 식별 레이블
+labels:
+  - pairs:
+      environment: production
+
+# 포함할 리소스
+resources:
+  - ../../base           # base 리소스 상속
+  - ingress.yaml         # TLS 적용된 Ingress
+  - pdb.yaml             # Pod Disruption Budget (가용성 보장)
+
+# 환경별 설정 오버라이드
+patches:
+  # Deployment 설정 (이미지 정책, 프로파일, Anti-Affinity)
+  - path: patches/deployment-patch.yaml
+  # ConfigMap 값 변경 (로그 레벨 최소화)
+  - path: patches/configmap-patch.yaml
+  # 리소스 증가 (운영 환경 트래픽 대응)
+  - path: patches/resource-patch.yaml
+  # 레플리카 증가 (고가용성)
+  - path: patches/replica-patch.yaml

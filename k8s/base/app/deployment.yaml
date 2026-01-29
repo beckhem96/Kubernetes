@@ -1,0 +1,81 @@
+# =============================================================================
+# Application Deployment
+# =============================================================================
+# 목적: Spring Boot 애플리케이션 Pod 배포 및 관리
+#
+# 주요 기능:
+# - 컨테이너 이미지 배포
+# - Health Check를 통한 자동 복구
+# - ConfigMap을 통한 환경 변수 주입
+# - 리소스 제한으로 안정적인 운영 보장
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+    component: backend    # 역할 식별용 레이블
+spec:
+  # 기본 복제본 수 (HPA에 의해 자동 조정됨)
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: myapp
+      component: backend
+
+  template:
+    metadata:
+      labels:
+        app: myapp
+        component: backend
+    spec:
+      containers:
+        - name: myapp
+          # 이미지 태그는 CI/CD에서 동적으로 변경
+          image: myapp:latest
+
+          # IfNotPresent: 로컬에 이미지가 있으면 pull 하지 않음
+          # 개발 환경에서는 Never로 오버라이드하여 로컬 빌드 이미지 사용
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8080
+              name: http            # 서비스에서 참조하는 포트 이름
+
+          # ConfigMap의 모든 키-값을 환경변수로 주입
+          envFrom:
+            - configMapRef:
+                name: myapp-config
+
+          # ----- 리소스 제한 -----
+          # requests: 스케줄링 시 최소 보장 리소스
+          # limits: 최대 사용 가능 리소스
+          resources:
+            requests:
+              memory: "256Mi"       # JVM 힙 + 메타스페이스 기본값
+              cpu: "250m"           # 0.25 CPU 코어
+            limits:
+              memory: "512Mi"       # OOM 방지를 위한 여유 공간
+              cpu: "500m"           # 0.5 CPU 코어
+
+          # ----- Liveness Probe -----
+          # 실패 시 컨테이너 재시작
+          # Spring Actuator의 /health 엔드포인트 사용
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30   # JVM 시작 시간 고려
+            periodSeconds: 10         # 10초마다 체크
+
+          # ----- Readiness Probe -----
+          # 실패 시 서비스에서 트래픽 제외
+          # 앱이 완전히 준비된 후에만 트래픽 수신
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 5    # 빠른 초기 체크
+            periodSeconds: 5          # 5초마다 체크

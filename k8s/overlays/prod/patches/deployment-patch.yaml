@@ -1,0 +1,42 @@
+# =============================================================================
+# Deployment Patch - Prod Environment
+# =============================================================================
+# 목적: 운영 환경에 맞게 Deployment 설정 오버라이드
+#
+# 변경 사항:
+# - imagePullPolicy: Always (항상 최신 이미지 pull)
+# - SPRING_PROFILES_ACTIVE: prod
+# - Pod Anti-Affinity (Pod를 다른 노드에 분산 배치)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      containers:
+        - name: myapp
+          # Always: 매번 레지스트리에서 이미지 pull
+          # 같은 태그라도 최신 이미지 보장
+          imagePullPolicy: Always
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+
+      # ----- Pod Anti-Affinity -----
+      # 동일 앱의 Pod를 다른 노드에 분산 배치
+      # 노드 장애 시에도 서비스 지속 가능
+      affinity:
+        podAntiAffinity:
+          # preferred: 가능하면 분산, 불가능해도 스케줄링 허용
+          # required: 분산 불가능하면 스케줄링 거부
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100         # 우선순위 가중치 (1-100)
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: myapp    # 같은 앱 레이블을 가진 Pod 회피
+                # 노드 단위로 분산 (같은 노드에 배치 안함)
+                topologyKey: kubernetes.io/hostname

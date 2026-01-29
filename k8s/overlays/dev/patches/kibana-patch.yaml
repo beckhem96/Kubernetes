@@ -1,0 +1,18 @@
+ # =============================================================================
+# Kibana Patch - Dev Environment
+# =============================================================================
+# 목적: namePrefix로 인해 변경된 서비스 이름 반영
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+spec:
+  template:
+    spec:
+      containers:
+        - name: kibana
+          env:
+            # dev- prefix가 붙은 서비스 이름으로 변경
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://dev-elasticsearch:9200"

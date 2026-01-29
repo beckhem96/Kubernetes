@@ -1,0 +1,101 @@
+# =============================================================================
+# Resource Patch - Prod Environment
+# =============================================================================
+# 목적: 운영 환경에서 충분한 리소스 할당
+#
+# 운영 환경 리소스 정책:
+# - 실제 트래픽 부하를 처리할 수 있는 충분한 리소스
+# - requests ≈ 평균 사용량, limits ≈ 피크 사용량
+# - JVM 앱은 힙 메모리 + 메타스페이스 + 네이티브 메모리 고려
+#
+# 리소스 산정 기준:
+# - Application: 동시 사용자 수, 요청당 메모리
+# - Elasticsearch: 인덱스 크기, 검색 쿼리 복잡도
+# - Kafka: 메시지 처리량, 보관 기간
+# - Redis: 캐시 데이터 크기
+# =============================================================================
+
+# ----- Application -----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      containers:
+        - name: myapp
+          resources:
+            requests:
+              memory: "512Mi"     # JVM 힙 384MB + 여유
+              cpu: "500m"         # 0.5 코어
+            limits:
+              memory: "1Gi"       # 피크 시 2배 허용
+              cpu: "1000m"        # 1 코어
+---
+# ----- Elasticsearch -----
+# JVM 힙은 시스템 메모리의 50% 이하 권장
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  template:
+    spec:
+      containers:
+        - name: elasticsearch
+          resources:
+            requests:
+              memory: "2Gi"       # 힙 1GB + 오프힙
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms1g -Xmx1g"    # 힙 1GB (limits의 25%)
+---
+# ----- Kafka -----
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  template:
+    spec:
+      containers:
+        - name: kafka
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+---
+# ----- Redis -----
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"     # maxmemory와 일치
+              cpu: "500m"
+          # 운영 환경에서는 캐시 용량 증가
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --maxmemory
+            - "512mb"             # 개발 256mb → 운영 512mb
+            - --maxmemory-policy
+            - "allkeys-lru"

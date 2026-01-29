@@ -1,0 +1,64 @@
+# =============================================================================
+# Replica Patch - Prod Environment
+# =============================================================================
+# 목적: 고가용성(HA)을 위한 레플리카 수 증가
+#
+# 레플리카 설정 가이드:
+# - Application: 3+ (무중단 배포, 부하 분산)
+# - Kafka: 3+ (홀수, 파티션 리더 분산)
+# - Zookeeper: 3 또는 5 (홀수, 과반수 쿼럼)
+# - Logstash: 2+ (로그 처리 부하 분산)
+#
+# 주의: StatefulSet 레플리카 증가 시
+# - 각 Pod에 개별 PVC가 생성됨
+# - 스토리지 비용 증가 고려 필요
+# =============================================================================
+
+# ----- Application -----
+# 3개 Pod로 부하 분산 및 무중단 배포 보장
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 3               # 개발 1 → 운영 3
+---
+# ----- Kafka -----
+# 3개 브로커로 파티션 복제 및 리더 분산
+# KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR도 3으로 변경 권장
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  replicas: 3               # 개발 1 → 운영 3
+---
+# ----- Zookeeper -----
+# 3개 노드로 쿼럼 구성 (과반수 2개 이상 필요)
+# 1개 장애 시에도 서비스 지속
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+spec:
+  replicas: 3               # 개발 1 → 운영 3
+---
+# ----- Logstash -----
+# 2개로 로그 처리 부하 분산
+# Kafka 컨슈머 그룹으로 자동 파티션 할당
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+spec:
+  replicas: 2               # 개발 1 → 운영 2
+---
+# ----- HPA 범위 확대 -----
+# 운영 트래픽에 맞게 오토스케일링 범위 증가
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+spec:
+  minReplicas: 3            # 최소 3개 유지 (HA)
+  maxReplicas: 20           # 최대 20개까지 확장
